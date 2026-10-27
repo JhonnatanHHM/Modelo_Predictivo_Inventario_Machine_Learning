@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block titulo %}Chat · Inventario predictivo{% endblock %}
+{% block contenido %}
+<h1 class="migas"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg>Chat</h1>
+
+<section class="tarjeta conversacion">
+  <header>
+    <h2>Asistente del aplicativo</h2>
+    <div class="herramientas">
+      <span class="recuerda"><span id="recuerda"></span> <button type="button" class="chip" id="olvidar" hidden style="padding:2px 10px; font-size:.75rem;">Olvidar contexto</button></span>
+      <form method="post" action="{% url 'chat_nueva' %}" style="margin:0;">{% csrf_token %}
+        <button class="icono-boton principal" type="submit" title="Nueva conversación" aria-label="Nueva conversación"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></form>
+      <button type="button" class="icono-boton" id="boton-historial" title="Conversaciones anteriores" aria-label="Conversaciones anteriores" aria-expanded="false" aria-controls="menu-historial">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></button>
+      {% if info_modelo %}
+      <span class="acerca">
+        <button type="button" class="icono-boton" aria-label="Acerca del asistente"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
+        <span class="globo" role="tooltip">Este asistente usa un clasificador de intenciones entrenado con {{ info_modelo.n_entrenamiento }} frases ({{ info_modelo.entrenado }}).
+        {% if info_modelo.agentes %}Se probó con frases escritas por agentes de IA que simulan usuarios (no son personas reales): en {{ info_modelo.agentes.n }} frases que el modelo nunca había visto acertó {{ info_modelo.agentes.funcional }} % ({{ info_modelo.agentes.estricta }} % exigiendo que la intención coincida exactamente); en validación cruzada con {{ info_modelo.agentes.n_cv }} frases, {{ info_modelo.agentes.cv }} % ({{ info_modelo.agentes.cv_estricta }} %).{% endif %}
+        Responde solo con datos del aplicativo.</span>
+      </span>
+      {% endif %}
+    </div>
+    <div class="menu-historial" id="menu-historial" hidden>
+      <div class="titulo">Conversaciones anteriores</div>
+      {% for s in sesiones %}
+      <div class="sesion {% if s.id == actual.id %}activa{% endif %}">
+        <a href="{% url 'chat_sesion' s.id %}"><span>{{ s.titulo|default:"Conversación nueva" }}</span><small>{{ s.actualizada|date:"d/m/Y H:i" }}</small></a>
+        <form method="post" action="{% url 'chat_eliminar' s.id %}" onsubmit="return confirm('¿Borrar esta conversación?');">{% csrf_token %}
+          <button type="submit" aria-label="Borrar conversación" title="Borrar">✕</button></form>
+      </div>
+      {% empty %}<p class="suave" style="padding:8px 12px;">Todavía no hay conversaciones.</p>{% endfor %}
+    </div>
+  </header>
+  <div class="mensajes" id="mensajes" aria-live="polite"></div>
+  <form class="entrada" id="formulario" autocomplete="off">
+    <input id="texto" name="texto" maxlength="600" placeholder="Pregunta sobre demanda, reposición, riesgo de quiebre, modelos..." aria-label="Escribe tu pregunta" required>
+    <button class="boton" type="submit" id="enviar">Enviar</button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ mensajes|json_script:"datos-mensajes" }}
+{{ ejemplos|json_script:"datos-ejemplos" }}
+{{ recuerda|json_script:"datos-recuerda" }}
+<script>
+  const csrf = '{{ csrf_token }}';
+  const urlEnviar = '{% url "chat_enviar" actual.id %}';
+  const caja = document.getElementById('mensajes');
+  const entrada = document.getElementById('texto');
+  const historial = JSON.parse(document.getElementById('datos-mensajes').textContent);
+  const ejemplos = JSON.parse(document.getElementById('datos-ejemplos').textContent);
+  const NOMBRES = {tienda: 'Tienda', categoria: 'Categoría', departamento: 'Departamento', producto: 'Producto', nivel: 'Servicio', horizonte: 'Proyección', pasado: 'Ventas de'};
+
+  function el(tag, clase, texto) { const e = document.createElement(tag); if (clase) e.className = clase; if (texto !== undefined) e.textContent = texto; return e; }
+  function fraseHorizonte(h) { return h.tipo === 'semana' ? 'semana ' + h.n : h.tipo === 'dias' ? h.n + ' días' : '28 días'; }
+  function pintarMemoria(m) {
+    const c = document.getElementById('recuerda'); c.textContent = '';
+    const partes = Object.entries(m || {}).filter(([k]) => NOMBRES[k]);
+    document.getElementById('olvidar').hidden = !partes.length;
+    if (!partes.length) return;
+    c.append('Recuerdo: ');
+    partes.forEach(([k, v], i) => { const b = el('b', '', k === 'nivel' ? Math.round(v * 100) + ' %' : k === 'horizonte' ? fraseHorizonte(v) : k === 'pasado' ? (v.fecha ? v.fecha.split('-').reverse().join('/') : v.meses ? v.meses.join(' y ') + ' (mes)' : v.todo ? 'todo el histórico' : v.mtd ? 'lo que va del mes' : v.anio ? v.anio : 'últimos ' + v.n + ' días') : v); c.append(NOMBRES[k] + ' ', b, i < partes.length - 1 ? ' · ' : ''); });
+  }
+
+  function chips(lista, alHacerClic) {
+    const c = el('div', 'chips');
+    lista.forEach(it => { const b = el('button', 'chip', it.etiqueta); b.type = 'button'; b.addEventListener('click', () => alHacerClic(it)); c.append(b); });
+    return c;
+  }
+  function pintarMensaje(m) {
+    const b = el('div', 'burbuja ' + m.rol + (m.fuera ? ' fuera' : ''));
+    b.append(m.texto);
+    const x = m.extra || {};
+    if (x.filas && x.filas.length) {
+      const wrap = el('div', 'tabla-scroll'), t = el('table'), cab = el('tr'), encabezado = el('thead');
+      (x.columnas || []).forEach(c => cab.append(el('th', '', c)));
+      encabezado.append(cab); t.append(encabezado);
+      const cuerpo = el('tbody');
+      x.filas.forEach(f => { const tr = el('tr'); f.forEach(v => tr.append(el('td', /^[\d.,—\s%]+$/.test(v) ? 'num' : '', v))); cuerpo.append(tr); });
+      t.append(cuerpo); wrap.append(t); b.append(wrap);
+    }
+    if (x.enlace) { const a = el('a', 'boton contorno', x.enlace.texto); a.href = x.enlace.url; a.style.marginTop = '10px'; a.style.display = 'inline-block'; a.style.padding = '6px 18px'; b.append(el('br'), a); }
+    if (x.sugerencias) b.append(chips(x.sugerencias.map(s => ({etiqueta: s, texto: s})), it => enviar(it.texto)));
+    if (x.opciones) b.append(chips(x.opciones.map(o => ({etiqueta: o.texto, texto: o.mensaje, intencion: o.intencion})), it => enviar(it.texto, it.intencion)));
+    if (m.rol === 'asistente' && m.intencion && !m.fuera) b.append(el('div', 'pie-burbuja', 'Intención detectada: ' + m.intencion.replace(/_/g, ' ') + (m.confianza ? ' · confianza ' + Math.round(m.confianza * 100) + ' %' : '')));
+    caja.append(b); caja.scrollTop = caja.scrollHeight;
+  }
+
+  async function enviar(texto, intencion) {
+    texto = texto.trim(); if (!texto) return;
+    pintarMensaje({rol: 'usuario', texto});
+    entrada.value = ''; document.getElementById('enviar').disabled = true;
+    const espera = el('div', 'escribiendo', 'Escribiendo…'); caja.append(espera); caja.scrollTop = caja.scrollHeight;
+    try {
+      const r = await fetch(urlEnviar, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf}, body: JSON.stringify({texto, intencion})});
+      const d = await r.json(); espera.remove();
+      if (!r.ok) throw new Error(d.error || 'Error');
+      pintarMensaje({rol: 'asistente', texto: d.texto, extra: d, intencion: d.intencion, confianza: d.confianza, fuera: d.fuera_de_contexto});
+      pintarMemoria(d.memoria);
+    } catch (e) { espera.remove(); pintarMensaje({rol: 'asistente', texto: 'No pude responder en este momento. Intenta de nuevo.', extra: {}}); }
+    document.getElementById('enviar').disabled = false; entrada.focus();
+  }
+
+  document.getElementById('olvidar').addEventListener('click', async () => {
+    await fetch('{% url "chat_olvidar" actual.id %}', {method: 'POST', headers: {'X-CSRFToken': csrf}}); pintarMemoria({});
+    pintarMensaje({rol: 'asistente', texto: 'Listo, olvidé el contexto de esta conversación (tienda, categoría, periodo y nivel de servicio).', extra: {}, intencion: ''});
+  });
+  document.getElementById('formulario').addEventListener('submit', e => { e.preventDefault(); enviar(entrada.value); });
+  caja.style.scrollBehavior = 'auto';                       // al abrir una conversación se va directo al final, sin animación
+  if (historial.length) historial.forEach(m => { try { pintarMensaje(m); } catch (e) { console.error(e); } });
+  else pintarMensaje({rol: 'asistente', texto: '¡Hola! Pregúntame sobre las proyecciones de demanda, cuánto pedir, riesgo de quiebre o los modelos. Solo respondo sobre este aplicativo.',
+                      extra: {sugerencias: ejemplos.slice(0, 5)}, intencion: ''});
+  pintarMemoria(JSON.parse(document.getElementById('datos-recuerda').textContent));
+  caja.scrollTop = caja.scrollHeight; caja.style.scrollBehavior = 'smooth';
+  entrada.focus();
+  const botonHistorial = document.getElementById('boton-historial'), menuHistorial = document.getElementById('menu-historial');
+  botonHistorial.addEventListener('click', e => { e.stopPropagation(); menuHistorial.hidden = !menuHistorial.hidden; botonHistorial.setAttribute('aria-expanded', String(!menuHistorial.hidden)); });
+  document.addEventListener('click', e => { if (!menuHistorial.hidden && !menuHistorial.contains(e.target)) { menuHistorial.hidden = true; botonHistorial.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') menuHistorial.hidden = true; });
+</script>
+{% endblock %}

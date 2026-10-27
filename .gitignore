@@ -1,0 +1,34 @@
+# ---- Entornos y caché ----
+.venv/
+venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+
+# ---- Secretos y configuración local ----
+.env
+
+# ---- Datos de M5: NO se pueden redistribuir (reglas de Kaggle). Nunca subir CSV, Parquet ni volcados de la base ----
+m5-forecasting-accuracy/
+*.csv
+*.parquet
+*.sql
+*.dump
+# (excepciones: lista de series elegidas, que son solo identificadores, y tablas de métricas agregadas)
+!laboratorio/datos_entrada/series_seleccionadas.csv
+!laboratorio/resultados_publicados/*.csv
+
+# ---- Modelos entrenados, registros y resultados crudos (se regeneran) ----
+*.ckpt
+*.joblib
+*.pkl
+lightning_logs/
+logs/
+modelos_guardados/
+staticfiles/
+db.sqlite3
+laboratorio/datos_completa/
+laboratorio/datos_procesados/
+laboratorio/resultados/
+laboratorio/resultados_completa/

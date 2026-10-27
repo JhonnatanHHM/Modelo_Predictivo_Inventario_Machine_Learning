@@ -1,0 +1,11 @@
+﻿Django>=5.2,<5.3
+psycopg[binary]>=3.2
+python-dotenv
+numpy>=1.24,<2.3
+pandas>=2.0,<3
+pyarrow>=14
+lightgbm>=4.0
+scikit-learn
+psutil
+torch>=2.1
+neuralforecast>=1.7.5,<3

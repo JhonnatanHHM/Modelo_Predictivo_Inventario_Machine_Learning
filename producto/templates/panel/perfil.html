@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Mi perfil · Inventario predictivo{% endblock %}
+{% block contenido %}
+<h1 class="migas"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg>Mi perfil</h1>
+<div class="dos-columnas dos-iguales">
+  <section class="tarjeta">
+    <h2>Datos</h2>
+    <div class="perfil-cabecera"><span class="avatar grande">{% include "includes/avatar.html" %}</span><div><b>{{ nombre_usuario }}</b><br><span class="suave">Usuario: {{ user.get_username }}</span></div></div>
+    <form method="post">{% csrf_token %}
+      <label for="nombre">Nombre para mostrar</label>
+      <input id="nombre" name="nombre" maxlength="60" value="{{ perfil.nombre_mostrado }}" placeholder="{{ user.get_username }}">
+      <label for="sexo">Avatar</label>
+      <select id="sexo" name="sexo">{% for v, e in sexos %}<option value="{{ v }}" {% if perfil.sexo == v %}selected{% endif %}>{{ e }}{% if v == "F" %} (avatar femenino){% elif v == "M" %} (avatar masculino){% else %} (avatar neutro){% endif %}</option>{% endfor %}</select>
+      <p class="espacio"><button class="boton" type="submit">Guardar</button></p>
+    </form>
+  </section>
+  <section class="tarjeta">
+    <h2>Cambiar contraseña</h2>
+    <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="clave">
+      <label for="id_old_password">Contraseña actual</label><input id="id_old_password" name="old_password" type="password" autocomplete="current-password" required>
+      <label for="id_new_password1">Contraseña nueva</label><input id="id_new_password1" name="new_password1" type="password" autocomplete="new-password" required>
+      <label for="id_new_password2">Repite la contraseña nueva</label><input id="id_new_password2" name="new_password2" type="password" autocomplete="new-password" required>
+      {% for campo in form_clave %}{% for e in campo.errors %}<p class="aviso-error" role="alert">{{ e }}</p>{% endfor %}{% endfor %}
+      <p class="espacio"><button class="boton contorno" type="submit">Actualizar contraseña</button></p>
+    </form>
+  </section>
+</div>
+{% endblock %}
