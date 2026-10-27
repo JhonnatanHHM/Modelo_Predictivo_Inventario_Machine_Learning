@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static humanize %}
+{% block titulo %}Proyecciones · Inventario predictivo{% endblock %}
+{% block contenido %}
+<h1 class="migas"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 5"/></svg>Proyecciones</h1>
+
+{% if not hay_datos %}
+<section class="tarjeta vacio">
+  <p style="margin-top:0;"><strong>Todavía no hay predicciones.</strong></p>
+  <p>Ve a la pestaña Modelos y lanza «Generar predicciones».</p>
+  <a class="boton" href="{% url 'modelos' %}">Ir a Modelos</a>
+</section>
+{% else %}
+<form class="filtros" method="get">
+  <div><label for="tienda">Tienda</label>
+    <select id="tienda" name="tienda" onchange="this.form.submit()"><option value="">Todas</option>
+      {% for t in tiendas %}<option value="{{ t.codigo }}" {% if t.codigo == tienda %}selected{% endif %}>{{ t.codigo }}</option>{% endfor %}</select></div>
+  <div><label for="categoria">Categoría</label>
+    <select id="categoria" name="categoria" onchange="this.form.submit()"><option value="">Todas</option>
+      {% for c in categorias %}<option value="{{ c.codigo }}" {% if c.codigo == categoria %}selected{% endif %}>{{ c.codigo }}</option>{% endfor %}</select></div>
+  {% if tienda or categoria %}<div class="botones"><a class="boton suave" href="{% url 'proyecciones' %}">Limpiar filtros</a></div>{% endif %}
+</form>
+
+<div class="kpis">
+  <div class="tarjeta kpi"><div class="cifra">{{ mediana|floatformat:0|intcomma }}</div><div class="suave">Demanda esperada, 28 días</div><div class="nota">Suma de las medianas de {{ n_series }} series</div></div>
+  <div class="tarjeta kpi"><div class="cifra">{{ alto|floatformat:0|intcomma }}</div><div class="suave">Con 90 % de servicio por producto</div><div class="nota">Suma del cuantil 0,9 de cada serie</div></div>
+  <div class="tarjeta kpi"><div class="cifra">{{ n_series|intcomma }}</div><div class="suave">Series en la selección</div><div class="nota">Pronóstico desde {{ fecha_origen|date:"j \d\e F \d\e Y" }}</div></div>
+</div>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>{% if serie %}{{ serie.item_id }} · {{ serie.tienda.codigo }}{% else %}Serie{% endif %}</h2>
+      {% if tiene_tft %}
+      <label style="margin:0; text-transform:none; letter-spacing:0; font-size:.9rem; display:flex; gap:8px; align-items:center;">
+        <input type="checkbox" id="ver-tft" style="width:auto;" checked> Comparar con TFT</label>
+      {% endif %}
+    </div>
+    <div class="lienzo"><canvas id="grafica-serie" role="img" aria-label="Ventas recientes y proyección de 28 días con su rango"></canvas></div>
+    <div class="leyenda">
+      <span><i style="border-color:var(--g-hist)"></i>Ventas reales (últimas 12 semanas)</span>
+      <span><i style="border-color:var(--g-p50)"></i>Mediana (LightGBM)</span>
+      <span><i class="banda"></i>Rango entre P10 y P90</span>
+      {% if tiene_tft %}<span><i style="border-color:var(--g-tft); border-top-style:dashed;"></i>Mediana (TFT)</span>{% endif %}
+    </div>
+  </section>
+  <section class="tarjeta">
+    <h2>Demanda esperada por categoría</h2>
+    <div class="lienzo corto"><canvas id="grafica-categoria" role="img" aria-label="Demanda esperada por categoría"></canvas></div>
+  </section>
+</div>
+
+<section class="tarjeta espacio">
+  <h2>Series con mayor demanda esperada</h2>
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Producto</th><th>Tienda</th><th>Departamento</th><th class="num">Mediana 28 días</th><th class="num">90 % de servicio</th></tr></thead>
+      <tbody>
+      {% for f in top %}
+        <tr>
+          <td><a class="enlace-fila" href="?tienda={{ tienda }}&categoria={{ categoria }}&serie={{ f.serie_id }}">{{ f.serie.item_id }}</a></td>
+          <td>{{ f.serie.tienda.codigo }}</td><td>{{ f.serie.departamento.codigo }}</td>
+          <td class="num">{{ f.mediana|floatformat:0|intcomma }}</td><td class="num">{{ f.q90|floatformat:0|intcomma }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if hay_datos %}
+<script src="{% static 'js/chart.umd.min.js' %}"></script>
+{{ grafica|json_script:"datos-grafica" }}
+{{ datos_categoria|json_script:"datos-categoria" }}
+<script>
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
+  Chart.defaults.color = css('--g-texto');
+  const rejilla = css('--g-rejilla');
+
+  const g = JSON.parse(document.getElementById('datos-grafica').textContent);
+  if (g) {
+    const base = g.modelos.lightgbm;
+    const etiquetas = [...g.hist.fechas, ...base.fechas];
+    const relleno = (arr, antes) => [...Array(antes).fill(null), ...arr];
+    const nh = g.hist.fechas.length;
+    const datasets = [
+      {label: 'Ventas reales', data: [...g.hist.y, ...Array(base.fechas.length).fill(null)], borderColor: css('--g-hist'), borderWidth: 2, pointRadius: 0, tension: .25},
+      {label: 'P10', data: relleno(base.p10, nh), borderColor: 'transparent', pointRadius: 0, tension: .25},
+      {label: 'Rango P10 a P90', data: relleno(base.p90, nh), borderColor: 'transparent', backgroundColor: css('--g-banda'), fill: '-1', pointRadius: 0, tension: .25},
+      {label: 'Mediana (LightGBM)', data: relleno(base.p50, nh), borderColor: css('--g-p50'), borderWidth: 2.5, pointRadius: 0, tension: .25},
+    ];
+    if (g.modelos.tft) {
+      datasets.push({label: 'Mediana (TFT)', data: relleno(g.modelos.tft.p50, nh), borderColor: css('--g-tft'), borderWidth: 2, borderDash: [6, 4], pointRadius: 0, tension: .25});
+    }
+    const grafica = new Chart(document.getElementById('grafica-serie'), {
+      type: 'line', data: {labels: etiquetas, datasets},
+      options: {maintainAspectRatio: false, interaction: {mode: 'index', intersect: false},
+        plugins: {legend: {display: false}, tooltip: {filter: i => i.dataset.label !== 'P10'}},
+        scales: {x: {grid: {display: false}, ticks: {maxTicksLimit: 8}}, y: {beginAtZero: true, grid: {color: rejilla}, title: {display: true, text: 'Unidades por día'}}}}
+    });
+    const caja = document.getElementById('ver-tft');
+    if (caja && g.modelos.tft) caja.addEventListener('change', () => { grafica.setDatasetVisibility(4, caja.checked); grafica.update(); });
+  }
+
+  const c = JSON.parse(document.getElementById('datos-categoria').textContent);
+  new Chart(document.getElementById('grafica-categoria'), {
+    type: 'bar', data: {labels: c.etiquetas, datasets: [{data: c.valores, backgroundColor: [css('--g-p50'), '#AF4C3C', '#C9958D'], borderRadius: 8}]},
+    options: {indexAxis: 'y', maintainAspectRatio: false, plugins: {legend: {display: false}},
+      scales: {x: {grid: {color: rejilla}, title: {display: true, text: 'Unidades en 28 días'}}, y: {grid: {display: false}}}}
+  });
+</script>
+{% endif %}
+{% endblock %}

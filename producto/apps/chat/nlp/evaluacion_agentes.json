@@ -1,0 +1,33 @@
+{
+ "fecha": "23/10/2026",
+ "entrenamiento_final": 9154,
+ "frases_de_agentes": 1646,
+ "rondas": [
+  {
+   "nombre": "Ronda 1 (8 agentes)",
+   "n": 734,
+   "funcional": 88.0,
+   "estricta": 84.1,
+   "nota": "medida antes de entrenar con ellas"
+  },
+  {
+   "nombre": "Ronda 2 (6 agentes, más difícil)",
+   "n": 517,
+   "funcional": 84.1,
+   "estricta": 80.9,
+   "nota": "medida antes de entrenar con ellas"
+  },
+  {
+   "nombre": "Ronda 3 (5 agentes)",
+   "n": 394,
+   "funcional": 91.6,
+   "estricta": 88.6,
+   "nota": "medida antes de entrenar con ellas"
+  }
+ ],
+ "validacion_cruzada": {
+  "n": 1646,
+  "funcional": 93.1,
+  "estricta": 90.3
+ }
+}

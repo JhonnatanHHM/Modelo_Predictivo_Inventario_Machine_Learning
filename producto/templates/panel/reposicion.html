@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load humanize l10n %}
+{% block titulo %}Reposición · Inventario predictivo{% endblock %}
+{% block contenido %}
+<h1 class="migas"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>Reposición</h1>
+
+{% if not hay_datos %}
+<section class="tarjeta vacio">
+  <p style="margin-top:0;"><strong>Todavía no hay sugerencias de reposición.</strong></p>
+  <p>Ve a la pestaña Modelos y lanza «Generar predicciones».</p>
+  <a class="boton" href="{% url 'modelos' %}">Ir a Modelos</a>
+</section>
+{% else %}
+<form class="filtros" method="get" id="filtros">
+  <div><label for="tienda">Tienda</label>
+    <select id="tienda" name="tienda"><option value="">Todas</option>
+      {% for t in tiendas %}<option value="{{ t.codigo }}" {% if t.codigo == tienda %}selected{% endif %}>{{ t.codigo }}</option>{% endfor %}</select></div>
+  <div><label for="categoria">Categoría</label>
+    <select id="categoria" name="categoria"><option value="">Todas</option>
+      {% for c in categorias %}<option value="{{ c.codigo }}" {% if c.codigo == categoria %}selected{% endif %}>{{ c.codigo }}</option>{% endfor %}</select></div>
+  <div><label for="nivel">Nivel de servicio</label>
+    <select id="nivel" name="nivel">{% for n in niveles %}<option value="{{ n|unlocalize }}" {% if n == nivel %}selected{% endif %}>{% widthratio n 1 100 %} %</option>{% endfor %}</select></div>
+  <div class="ancho"><label for="politica">Política</label>
+    <select id="politica" name="politica"><option value="28d" {% if politica == "28d" %}selected{% endif %}>Una reposición de 28 días</option>
+      <option value="semanal" {% if politica == "semanal" %}selected{% endif %}>Reposición semanal (esta semana)</option></select></div>
+  <div><label for="estado">Estado</label>
+    <select id="estado" name="estado"><option value="">Todos</option>
+      <option value="riesgo" {% if estado == "riesgo" %}selected{% endif %}>Riesgo de quiebre</option>
+      <option value="sobre" {% if estado == "sobre" %}selected{% endif %}>Sobreinventario</option>
+      <option value="ok" {% if estado == "ok" %}selected{% endif %}>Adecuado</option>
+      <option value="sin" {% if estado == "sin" %}selected{% endif %}>Sin inventario</option></select></div>
+  <div><label for="q">Buscar producto</label><input id="q" name="q" value="{{ q }}" placeholder="Ej. FOODS_3"></div>
+  <div class="botones"><button class="boton" type="submit">Aplicar</button> <a class="boton suave" href="{% url 'reposicion' %}">Limpiar filtros</a></div>
+</form>
+
+<div class="kpis">
+  <div class="tarjeta kpi"><div class="cifra">{{ resumen.pedido|floatformat:0|intcomma }}</div><div class="suave">Unidades sugeridas a pedir</div><div class="nota">{{ resumen.total }} series en la selección</div></div>
+  <div class="tarjeta kpi"><div class="cifra" style="color:var(--riesgo)">{{ resumen.riesgo }}</div><div class="suave">En riesgo de quiebre</div><div class="nota">Inventario por debajo de la demanda mediana</div></div>
+  <div class="tarjeta kpi"><div class="cifra" style="color:var(--sobre)">{{ resumen.sobre }}</div><div class="suave">Con sobreinventario</div><div class="nota">Más de 1,5 veces el stock objetivo</div></div>
+  <div class="tarjeta kpi"><div class="cifra">{{ resumen.sin }}</div><div class="suave">Sin inventario registrado</div><div class="nota">Se muestra el stock objetivo completo</div></div>
+</div>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Pedido sugerido por producto</h2>
+    <span class="suave" style="font-size:.85rem;">Pronóstico desde el {{ fecha_origen|date:"j \d\e F \d\e Y" }}. Edita el inventario y el pedido se recalcula al instante.</span>
+  </div>
+  {% if hay_simulados %}<p class="pill sobre" style="margin:0 0 12px;">Hay inventarios simulados (solo para demostración): no son datos reales.</p>{% endif %}
+  <div class="tabla-scroll">
+    <table id="tabla-reposicion">
+      <thead><tr><th>Producto</th><th>Tienda</th><th>Rotación</th><th class="num">Demanda mediana</th><th class="num">Stock objetivo</th><th class="num">Inventario actual</th><th class="num">Pedido sugerido</th><th>Estado</th></tr></thead>
+      <tbody>
+      {% for f in pagina %}
+        <tr data-serie="{{ f.serie.id }}">
+          <td>{{ f.serie.item_id }}</td><td>{{ f.serie.tienda.codigo }}</td><td>{{ f.serie.get_rotacion_display }}</td>
+          <td class="num">{{ f.mediana|floatformat:0|intcomma }}</td><td class="num">{{ f.objetivo|floatformat:0|intcomma }}</td>
+          <td class="num"><input class="celda" type="number" min="0" step="1" value="{{ f.inventario|default_if_none:'' }}" aria-label="Inventario actual de {{ f.serie.item_id }}"></td>
+          <td class="num pedido"><strong>{{ f.pedido|floatformat:0|intcomma }}</strong></td>
+          <td class="estado"><span class="pill {{ f.clave }}">{{ f.etiqueta }}</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="vacio">No hay series con esos filtros.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pagina.paginator.num_pages > 1 %}
+  <div class="paginacion">
+    {% if pagina.has_previous %}<a class="boton suave" href="?{{ consulta }}&pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+    {% if pagina.has_next %}<a class="boton suave" href="?{{ consulta }}&pagina={{ pagina.next_page_number }}">Siguiente</a>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if hay_datos %}
+<script>
+  const csrf = '{{ csrf_token }}';
+  const nivel = {{ nivel|unlocalize }}, politica = '{{ politica }}';
+  document.querySelectorAll('#filtros select').forEach(s => s.addEventListener('change', () => document.getElementById('filtros').submit()));
+  const formato = n => new Intl.NumberFormat('es-CO').format(n);
+  document.querySelectorAll('#tabla-reposicion input.celda').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const fila = inp.closest('tr');
+      inp.disabled = true;
+      try {
+        const r = await fetch('{% url "actualizar_inventario" %}', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+          body: JSON.stringify({serie_id: fila.dataset.serie, unidades: inp.value, nivel, politica})});
+        if (!r.ok) throw new Error();
+        const d = await r.json();
+        fila.querySelector('.pedido').innerHTML = '<strong>' + formato(d.pedido) + '</strong>';
+        fila.querySelector('.estado').innerHTML = '<span class="pill ' + d.clave + '">' + d.etiqueta + '</span>';
+      } catch (e) { alert('No se pudo guardar el inventario. Intenta de nuevo.'); }
+      inp.disabled = false;
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}
