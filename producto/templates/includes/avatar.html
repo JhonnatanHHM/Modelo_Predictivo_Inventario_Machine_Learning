@@ -1,0 +1,17 @@
+{# Avatar según el sexo del perfil: F = cabello largo, M = cabello corto, N = neutro #}
+<svg class="avatar-svg" viewBox="0 0 64 64" aria-hidden="true">
+  <defs><linearGradient id="av{{ perfil.sexo }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EE9385"/><stop offset="1" stop-color="#FF5E46"/></linearGradient></defs>
+  <circle cx="32" cy="32" r="32" fill="url(#av{{ perfil.sexo }})"/>
+  {% if perfil.sexo == "F" %}
+  <path d="M15 46c-2-17 3-31 17-31s19 14 17 31c-3-4-6-7-6-7H21s-3 3-6 7z" fill="#372E2D"/>
+  <circle cx="32" cy="29" r="10.5" fill="#FBE3D8"/>
+  <path d="M21.5 26c3-1 8-4 11-8 2 3 7 6 10 7-1-7-6-11-11-11s-9 5-10 12z" fill="#372E2D"/>
+  {% elif perfil.sexo == "M" %}
+  <circle cx="32" cy="29" r="10.5" fill="#FBE3D8"/>
+  <path d="M21 27c0-9 6-13 11-13s11 4 11 13c-3-3-6-5-11-5s-8 2-11 5z" fill="#372E2D"/>
+  {% else %}
+  <circle cx="32" cy="29" r="10.5" fill="#FBE3D8"/>
+  <path d="M21 28c0-8 5-12 11-12s11 4 11 12c-4-4-7-6-11-6s-7 2-11 6z" fill="#5C423E"/>
+  {% endif %}
+  <path d="M10 60c1-11 10-17 22-17s21 6 22 17c-6 5-13 8-22 8s-16-3-22-8z" fill="#FFF7F4"/>
+</svg>

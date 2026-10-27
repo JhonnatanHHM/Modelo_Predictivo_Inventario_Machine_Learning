@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Acceso · Inventario predictivo{% endblock %}
+{% block cuerpo %}
+<div class="centrado">
+  <div class="acceso">
+    <span class="marca">{% include "includes/logo.html" %}</span>
+    <div class="tarjeta">
+      <h2>Acceso</h2>
+      <form method="post">
+        {% csrf_token %}
+        <label for="id_username">Usuario</label>
+        <input id="id_username" name="username" autocomplete="username" required autofocus>
+        <label for="id_password">Contraseña</label>
+        <input id="id_password" name="password" type="password" autocomplete="current-password" required>
+        {% if form.errors %}<p class="aviso-error" role="alert">Usuario o contraseña incorrectos.</p>{% endif %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <p class="espacio"><button class="boton" type="submit">Entrar</button></p>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

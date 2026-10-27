@@ -1,0 +1,10 @@
+# Versiones acotadas para que todo funcione junto (Python 3.10 a 3.12)
+numpy>=1.24,<2.3
+pandas>=2.0,<3
+pyarrow>=14
+matplotlib>=3.7
+torch>=2.1
+lightgbm>=4.0
+statsforecast>=1.7
+neuralforecast>=1.7.5,<3
+scikit-learn

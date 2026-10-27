@@ -1,0 +1,58 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Inventario predictivo{% endblock %}</title>
+  <script>try { var t = localStorage.getItem('tema'); if (t === 'oscuro') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) {}</script>
+  <link rel="stylesheet" href="{% static 'css/tema.css' %}">
+</head>
+<body>
+{% block cuerpo %}
+<div class="pagina">
+  <header class="encabezado">
+    <a class="marca" href="{% url 'proyecciones' %}">{% include "includes/logo.html" %}</a>
+    <div class="usuario">
+      <button type="button" class="icono-boton" id="cambiar-tema" title="Cambiar entre tema claro y oscuro" aria-label="Cambiar tema">
+        <svg class="icono-luna" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 019.5 4 8.5 8.5 0 1020 14.5z"/></svg>
+        <svg class="icono-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      </button>
+      <a class="perfil-enlace" href="{% url 'perfil' %}" title="Mi perfil">
+        <span>{{ nombre_usuario }}</span>
+        <span class="avatar">{% include "includes/avatar.html" %}</span>
+      </a>
+      <form method="post" action="{% url 'salir' %}">{% csrf_token %}<button class="boton suave" type="submit">Salir</button></form>
+    </div>
+  </header>
+  <div class="estructura">
+    <aside class="lateral">
+      <nav aria-label="Principal">
+        <a class="enlace {% if seccion == 'proyecciones' %}activo{% endif %}" href="{% url 'proyecciones' %}">
+          <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 5"/></svg>Proyecciones</a>
+        <a class="enlace {% if seccion == 'reposicion' %}activo{% endif %}" href="{% url 'reposicion' %}">
+          <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>Reposición</a>
+        <a class="enlace {% if seccion == 'modelos' %}activo{% endif %}" href="{% url 'modelos' %}">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Modelos</a>
+        <a class="enlace {% if seccion == 'chat' %}activo{% endif %}" href="{% url 'chat_inicio' %}">
+          <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg>Chat</a>
+      </nav>
+    </aside>
+    <main class="contenido">
+      {% if messages %}{% for m in messages %}<p class="mensaje-ok" role="status">{{ m }}</p>{% endfor %}{% endif %}
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}
+<script>
+  const botonTema = document.getElementById('cambiar-tema');
+  if (botonTema) botonTema.addEventListener('click', () => {
+    const oscuro = document.documentElement.getAttribute('data-theme') !== 'dark';
+    if (oscuro) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('tema', oscuro ? 'oscuro' : 'claro'); } catch (e) {}
+    if (document.querySelector('canvas')) location.reload();          // las gráficas toman sus colores al dibujarse
+  });
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

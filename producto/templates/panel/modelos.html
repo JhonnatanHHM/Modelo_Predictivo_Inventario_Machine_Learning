@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static humanize %}
+{% block titulo %}Modelos · Inventario predictivo{% endblock %}
+{% block contenido %}
+<h1 class="migas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Modelos</h1>
+
+<div class="rejilla">
+  <section class="tarjeta">
+    <h2>Generar predicciones</h2>
+    <p class="suave" style="margin-top:0;">Entrena LightGBM con todo el histórico, pronostica los 28 días siguientes y guarda las predicciones y la reposición sugerida. Tarda cerca de 1 minuto.</p>
+    <div class="acciones">
+      <button class="boton" type="button" id="btn-generar" data-comando="generar_predicciones">Generar predicciones</button>
+      <span class="pill ejecutando" id="aviso-generar" {% if not en_curso.generar_predicciones %}hidden{% endif %}>En ejecución…</span>
+    </div>
+  </section>
+  <section class="tarjeta">
+    <h2>Entrenar TFT</h2>
+    <p class="suave" style="margin-top:0;">Entrena la red neuronal (Temporal Fusion Transformer) y guarda sus predicciones y el modelo. La versión completa tarda cerca de 1 hora en CPU; puedes seguir usando la página mientras corre.</p>
+    <div class="acciones">
+      <select id="pasos" aria-label="Duración del entrenamiento">
+        <option value="1500">Completo (1.500 pasos, ~1 h)</option>
+        <option value="20">Prueba rápida (20 pasos, ~3 min)</option>
+      </select>
+      <button class="boton" type="button" id="btn-tft" data-comando="entrenar_tft">Entrenar TFT</button>
+      <span class="pill ejecutando" id="aviso-tft" {% if not en_curso.entrenar_tft %}hidden{% endif %}>En ejecución…</span>
+    </div>
+  </section>
+</div>
+
+<section class="tarjeta espacio">
+  <div class="cabecera-tarjeta"><h2>Tareas recientes</h2><span class="suave" id="nota-actualizacion" style="font-size:.85rem;"></span></div>
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Tarea</th><th>Estado</th><th>Inicio</th><th>Duración</th><th>Detalle</th><th></th></tr></thead>
+      <tbody id="tareas">
+        {% for t in tareas %}
+        <tr data-id="{{ t.id }}"><td>{{ t.titulo }}{% if t.parametros.pasos %} ({{ t.parametros.pasos }} pasos){% endif %}</td>
+          <td><span class="pill {{ t.estado }}">{{ t.estado_texto }}</span></td><td>{{ t.inicio }}</td><td>{{ t.duracion }}</td><td>{{ t.resumen }}</td>
+          <td><button class="boton suave" type="button" data-registro="{{ t.id }}">Ver registro</button></td></tr>
+        {% empty %}<tr><td colspan="6" class="vacio">Aún no se ha lanzado ninguna tarea.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <pre class="registro" id="registro" hidden></pre>
+</section>
+
+<section class="tarjeta espacio">
+  <h2>Corridas guardadas</h2>
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Corrida</th><th>Tipo</th><th>Último día observado</th><th>Tipo de pronóstico</th><th>Activa</th><th>Creada</th></tr></thead>
+      <tbody>
+        {% for c in corridas %}
+        <tr><td>{{ c.nombre }}</td><td>{{ c.get_tipo_display }}</td><td>{{ c.fecha_origen|date:"j M Y" }}</td>
+          <td>{% if c.es_futuro_real %}Hacia el futuro{% else %}Prueba hacia atrás{% endif %}</td>
+          <td>{% if c.activa %}<span class="pill ok">Activa</span>{% else %}—{% endif %}</td><td>{{ c.creada|date:"d/m/Y H:i" }}</td></tr>
+        {% empty %}<tr><td colspan="6" class="vacio">Todavía no hay corridas. Lanza «Generar predicciones».</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="tarjeta espacio">
+  <h2>Comparación de modelos (pruebas de laboratorio)</h2>
+  {% if tabla %}
+  <p class="suave" style="margin-top:0;">Promedio de 3 ventanas de 28 días con 374 series. MASE: menor es mejor. Cobertura del 80 %: lo ideal es 0,80.</p>
+  <div class="dos-columnas">
+    <div class="lienzo corto"><canvas id="grafica-mase" role="img" aria-label="MASE medio por modelo"></canvas></div>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Modelo</th><th class="num">MASE</th><th class="num">Pinball</th><th class="num">Cob. 80 %</th></tr></thead>
+        <tbody>{% for r in tabla %}<tr><td>{{ r.etiqueta }}</td><td class="num">{{ r.MASE_medio|floatformat:3 }}</td><td class="num">{{ r.pinball_escalada_media|floatformat:3 }}</td><td class="num">{{ r.cobertura_80|floatformat:3 }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <p class="vacio" style="padding:20px;">Sin métricas cargadas. Ejecuta <code>python manage.py cargar_metricas</code> para traer los resultados de las pruebas.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/chart.umd.min.js' %}"></script>
+{{ grafica_mase|json_script:"datos-mase" }}
+<script>
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const csrf = '{{ csrf_token }}';
+  const lienzo = document.getElementById('grafica-mase');
+  if (lienzo) {
+    const m = JSON.parse(document.getElementById('datos-mase').textContent);
+    Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif'; Chart.defaults.color = css('--g-texto');
+    new Chart(lienzo, {type: 'bar', data: {labels: m.etiquetas, datasets: [{data: m.valores, backgroundColor: m.etiquetas.map(e => /TFT/.test(e) ? css('--g-p50') : css('--g-hist')), borderRadius: 6}]},
+      options: {indexAxis: 'y', maintainAspectRatio: false, plugins: {legend: {display: false}},
+        scales: {x: {min: 0.7, grid: {color: css('--g-rejilla')}, title: {display: true, text: 'MASE medio'}}, y: {grid: {display: false}}}}});
+  }
+
+  // ---- Lanzar tareas y seguir su estado (consulta cada 3 s mientras haya una en ejecución) ----
+  let verRegistroDe = null, temporizador = null;
+  const pasos = document.getElementById('pasos');
+  async function lanzar(comando) {
+    const datos = new URLSearchParams({comando, pasos: pasos.value});
+    const r = await fetch('{% url "lanzar_tarea" %}', {method: 'POST', headers: {'X-CSRFToken': csrf}, body: datos});
+    if (!r.ok) { alert('No se pudo lanzar la tarea.'); return; }
+    const d = await r.json();
+    if (!d.nueva) alert('Esa tarea ya está en ejecución.');
+    verRegistroDe = d.id; actualizar();
+  }
+  document.getElementById('btn-generar').addEventListener('click', () => lanzar('generar_predicciones'));
+  document.getElementById('btn-tft').addEventListener('click', () => {
+    if (pasos.value === '1500' && !confirm('El entrenamiento completo tarda cerca de 1 hora y usa casi todo el procesador. ¿Lanzarlo ahora?')) return;
+    lanzar('entrenar_tft');
+  });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-registro]'); if (b) { verRegistroDe = b.dataset.registro; actualizar(); } });
+
+  async function actualizar() {
+    const r = await fetch('{% url "estado_tareas" %}'); const d = await r.json();
+    const cuerpo = document.getElementById('tareas');
+    cuerpo.innerHTML = d.tareas.length ? d.tareas.map(t =>
+      `<tr><td>${t.titulo}${t.parametros.pasos ? ' (' + t.parametros.pasos + ' pasos)' : ''}</td><td><span class="pill ${t.estado}">${t.estado_texto}</span></td><td>${t.inicio}</td><td>${t.duracion}</td><td>${t.resumen}</td>` +
+      `<td><button class="boton suave" type="button" data-registro="${t.id}">Ver registro</button></td></tr>`).join('') :
+      '<tr><td colspan="6" class="vacio">Aún no se ha lanzado ninguna tarea.</td></tr>';
+    const activa = {generar_predicciones: false, entrenar_tft: false};
+    d.tareas.forEach(t => { if (t.estado === 'ejecutando' || t.estado === 'pendiente') activa[t.comando] = true; });
+    document.getElementById('aviso-generar').hidden = !activa.generar_predicciones; document.getElementById('aviso-tft').hidden = !activa.entrenar_tft;
+    document.getElementById('btn-generar').disabled = activa.generar_predicciones; document.getElementById('btn-tft').disabled = activa.entrenar_tft;
+    if (verRegistroDe) {
+      const rr = await fetch('/modelos/registro/' + verRegistroDe + '/'); const reg = await rr.json();
+      const caja = document.getElementById('registro'); caja.hidden = false; caja.textContent = reg.registro || '(sin salida todavía)'; caja.scrollTop = caja.scrollHeight;
+    }
+    document.getElementById('nota-actualizacion').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
+    clearTimeout(temporizador);
+    if (activa.generar_predicciones || activa.entrenar_tft) temporizador = setTimeout(actualizar, 3000);
+    else if (verRegistroDe) verRegistroDe = verRegistroDe;     // la tarea terminó: se deja visible el último registro
+  }
+  if ({{ en_curso.generar_predicciones|yesno:"true,false" }} || {{ en_curso.entrenar_tft|yesno:"true,false" }}) actualizar();
+</script>
+{% endblock %}
