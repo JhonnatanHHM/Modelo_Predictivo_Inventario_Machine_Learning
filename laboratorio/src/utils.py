@@ -36,16 +36,11 @@ def cronometro(etapa):
 def info_equipo():
     d = {"python": sys.version.split()[0], "so": platform.platform(), "procesador": platform.processor(),
          "nucleos_logicos": os.cpu_count()}
-    for lib in ("numpy", "pandas", "torch", "lightgbm", "statsforecast", "neuralforecast", "pyarrow", "matplotlib"):
+    for lib in ("numpy", "pandas", "lightgbm", "statsforecast", "optuna", "pyarrow", "matplotlib"):
         try:
             m = __import__(lib); d[lib] = getattr(m, "__version__", "?")
         except Exception:
             d[lib] = "NO INSTALADO"
-    try:
-        import torch
-        d["torch_hilos"] = torch.get_num_threads(); d["cuda"] = bool(torch.cuda.is_available())
-    except Exception:
-        pass
     return d
 
 def guardar_tabla(df, nombre):
