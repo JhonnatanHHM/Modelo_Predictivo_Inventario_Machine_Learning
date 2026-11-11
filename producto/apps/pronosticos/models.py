@@ -6,7 +6,7 @@ from apps.catalogo.models import Serie
 class CorridaModelo(models.Model):
     """Una ejecución de un modelo: cuándo se entrenó, con qué origen y si es un pronóstico real hacia el futuro."""
     TIPOS = [("naive", "Naive estacional"), ("ets", "ETS"), ("lightgbm", "LightGBM (cuantiles diarios)"),
-             ("tft", "Temporal Fusion Transformer"), ("lgbm_agregado", "LightGBM (cuantil de la demanda agregada)")]
+             ("lgbm_agregado", "LightGBM (cuantil de la demanda agregada)")]
 
     nombre = models.CharField(max_length=80)
     tipo = models.CharField(max_length=20, choices=TIPOS)
@@ -91,7 +91,7 @@ class InventarioActual(models.Model):
 
 class EjecucionTarea(models.Model):
     """Una tarea lanzada desde la pestaña Modelos (corre en un proceso aparte; el registro sirve para ver su estado y su registro)."""
-    COMANDOS = [("generar_predicciones", "Generar predicciones"), ("entrenar_tft", "Entrenar TFT")]
+    COMANDOS = [("generar_predicciones", "Generar predicciones")]
     ESTADOS = [("pendiente", "Pendiente"), ("ejecutando", "Ejecutando"), ("ok", "Terminada"), ("error", "Con error"), ("interrumpida", "Interrumpida")]
 
     comando = models.CharField(max_length=40, choices=COMANDOS)

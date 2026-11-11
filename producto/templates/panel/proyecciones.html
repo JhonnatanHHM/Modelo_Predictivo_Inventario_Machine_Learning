@@ -31,17 +31,12 @@
   <section class="tarjeta">
     <div class="cabecera-tarjeta">
       <h2>{% if serie %}{{ serie.item_id }} · {{ serie.tienda.codigo }}{% else %}Serie{% endif %}</h2>
-      {% if tiene_tft %}
-      <label style="margin:0; text-transform:none; letter-spacing:0; font-size:.9rem; display:flex; gap:8px; align-items:center;">
-        <input type="checkbox" id="ver-tft" style="width:auto;" checked> Comparar con TFT</label>
-      {% endif %}
     </div>
     <div class="lienzo"><canvas id="grafica-serie" role="img" aria-label="Ventas recientes y proyección de 28 días con su rango"></canvas></div>
     <div class="leyenda">
       <span><i style="border-color:var(--g-hist)"></i>Ventas reales (últimas 12 semanas)</span>
       <span><i style="border-color:var(--g-p50)"></i>Mediana (LightGBM)</span>
       <span><i class="banda"></i>Rango entre P10 y P90</span>
-      {% if tiene_tft %}<span><i style="border-color:var(--g-tft); border-top-style:dashed;"></i>Mediana (TFT)</span>{% endif %}
     </div>
   </section>
   <section class="tarjeta">
@@ -93,17 +88,12 @@
       {label: 'Rango P10 a P90', data: relleno(base.p90, nh), borderColor: 'transparent', backgroundColor: css('--g-banda'), fill: '-1', pointRadius: 0, tension: .25},
       {label: 'Mediana (LightGBM)', data: relleno(base.p50, nh), borderColor: css('--g-p50'), borderWidth: 2.5, pointRadius: 0, tension: .25},
     ];
-    if (g.modelos.tft) {
-      datasets.push({label: 'Mediana (TFT)', data: relleno(g.modelos.tft.p50, nh), borderColor: css('--g-tft'), borderWidth: 2, borderDash: [6, 4], pointRadius: 0, tension: .25});
-    }
-    const grafica = new Chart(document.getElementById('grafica-serie'), {
+    new Chart(document.getElementById('grafica-serie'), {
       type: 'line', data: {labels: etiquetas, datasets},
       options: {maintainAspectRatio: false, interaction: {mode: 'index', intersect: false},
         plugins: {legend: {display: false}, tooltip: {filter: i => i.dataset.label !== 'P10'}},
         scales: {x: {grid: {display: false}, ticks: {maxTicksLimit: 8}}, y: {beginAtZero: true, grid: {color: rejilla}, title: {display: true, text: 'Unidades por día'}}}}
     });
-    const caja = document.getElementById('ver-tft');
-    if (caja && g.modelos.tft) caja.addEventListener('change', () => { grafica.setDatasetVisibility(4, caja.checked); grafica.update(); });
   }
 
   const c = JSON.parse(document.getElementById('datos-categoria').textContent);
