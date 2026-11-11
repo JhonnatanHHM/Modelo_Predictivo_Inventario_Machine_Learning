@@ -1,4 +1,4 @@
-"""Lanzamiento de tareas largas (generar predicciones, entrenar el TFT) desde la web, sin Celery:
+"""Lanzamiento de tareas largas (generar predicciones) desde la web, sin Celery:
 cada tarea corre en un proceso aparte (manage.py ejecutar_tarea) y escribe su registro en LOGS_DIR."""
 import os
 import subprocess
@@ -10,10 +10,8 @@ from django.utils import timezone
 
 from .models import EjecucionTarea
 
-PASOS_PERMITIDOS = (20, 1500)       # prueba rápida o configuración completa
 COMANDOS = {
     "generar_predicciones": {"titulo": "Generar predicciones", "parametros": lambda p: {}},
-    "entrenar_tft": {"titulo": "Entrenar TFT", "parametros": lambda p: {"pasos": p if p in PASOS_PERMITIDOS else 1500}},
 }
 
 
@@ -32,13 +30,13 @@ def en_curso(comando):
     return None
 
 
-def lanzar(comando, pasos=None):
+def lanzar(comando):
     if comando not in COMANDOS:
         raise ValueError("Comando no permitido.")
     previa = en_curso(comando)
     if previa:
         return previa, False
-    t = EjecucionTarea.objects.create(comando=comando, parametros=COMANDOS[comando]["parametros"](pasos), estado="pendiente")
+    t = EjecucionTarea.objects.create(comando=comando, parametros=COMANDOS[comando]["parametros"](None), estado="pendiente")
     settings.LOGS_DIR.mkdir(parents=True, exist_ok=True)
     t.ruta_log = str(settings.LOGS_DIR / f"tarea_{t.id}_{comando}.log")
     banderas = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == "nt" else 0
