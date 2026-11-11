@@ -102,7 +102,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--salmon) 9%, var(--tarjeta)
 @media (prefers-reduced-motion: no-preference) { .enlace, .boton { transition: background .15s, filter .15s; } }
 
 /* ---- Variables de las gráficas ---- */
-:root { --g-hist: #5C423E; --g-p50: #FF5E46; --g-banda: rgba(238, 147, 133, .38); --g-tft: #372E2D; --g-rejilla: rgba(55, 46, 45, .09); --g-texto: #6F5E5A;
+:root { --g-hist: #5C423E; --g-p50: #FF5E46; --g-banda: rgba(238, 147, 133, .38); --g-rejilla: rgba(55, 46, 45, .09); --g-texto: #6F5E5A;
   --ok: #2E7D5B; --ok-fondo: #E4F2EA; --riesgo: #AF4C3C; --riesgo-fondo: #FBE5E0; --sobre: #8A5A12; --sobre-fondo: #FAEFD6; --sin: #6F5E5A; --sin-fondo: #EFE6E3; }
 
 /* ---- Filtros, tarjetas de cifras, etiquetas y gráficas ---- */
@@ -193,7 +193,7 @@ input.celda { width: 96px; padding: 6px 10px; text-align: right; }
 :root[data-theme="dark"] {
   --fondo: #2B2321; --tarjeta: #382E2C; --texto: #F3E9E6; --suave: #C8B4AF; --borde: #4B3E3B; --borde2: #5B4B47; --suelo: #322927;
   --titulo: var(--salmon); --sombra: 0 6px 22px rgba(0, 0, 0, .22); --globo: #1F1817;
-  --g-hist: #EBD8D3; --g-p50: #FF7E6A; --g-banda: rgba(255, 126, 106, .26); --g-tft: #C9958D; --g-rejilla: rgba(243, 233, 230, .12); --g-texto: #C8B4AF;
+  --g-hist: #EBD8D3; --g-p50: #FF7E6A; --g-banda: rgba(255, 126, 106, .26); --g-rejilla: rgba(243, 233, 230, .12); --g-texto: #C8B4AF;
   --ok: #7FD1A6; --ok-fondo: #234034; --riesgo: #FF9C8F; --riesgo-fondo: #4A2B27; --sobre: #F0C36B; --sobre-fondo: #43371B; --sin: #C8B4AF; --sin-fondo: #43383A;
 }
 :root[data-theme="dark"] a { color: var(--salmon); }

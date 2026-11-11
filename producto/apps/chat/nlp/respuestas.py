@@ -16,7 +16,7 @@ NOMBRES_INTENCION = {"catalogo": "Tiendas, categorías y datos disponibles", "ac
                      "riesgo_quiebre": "Riesgo de quiebre", "sobreinventario": "Sobreinventario", "top_productos": "Productos con más demanda",
                      "comparar_modelos": "Comparación de modelos", "estado_modelo": "Estado de las predicciones", "inventario_actual": "Inventario actual", "glosario": "Qué significa un término"}
 EJEMPLOS = ["¿Qué productos se vendieron más el último mes registrado?", "¿Cuánto se va a vender de FOODS_2_398 en WI_2 el próximo mes?", "¿Cuánto debo pedir de HOUSEHOLD con 95 % de servicio?", "¿Qué productos están en riesgo de quiebre en Texas?",
-            "¿Cuáles son los 5 productos con más demanda en CA_1?", "¿Cuál modelo es mejor, el TFT o LightGBM?", "¿Qué significa nivel de servicio?", "¿Cuándo se actualizaron las predicciones?"]
+            "¿Cuáles son los 5 productos con más demanda en CA_1?", "¿Qué tan preciso es el modelo?", "¿Qué significa nivel de servicio?", "¿Cuándo se actualizaron las predicciones?"]
 
 GLOSARIO = {
     "p10": "P10 es el valor por debajo del cual cae la demanda diaria solo el 10 % de las veces. Como muchos días no se vende nada, el P10 suele ser 0.",
@@ -32,8 +32,8 @@ GLOSARIO = {
     "pinball": "La pérdida pinball mide qué tan buenos son los cuantiles pronosticados (P10, P50, P90): penaliza más quedarse corto en los altos y pasarse en los bajos. Menor es mejor.",
     "cuantil": "Un cuantil es un valor de corte: el cuantil 0,9 es el valor que deja por debajo al 90 % de los casos. El sistema pronostica varios cuantiles en vez de un solo número para medir la incertidumbre.",
     "mediana": "La mediana de la demanda es el valor central: la mitad de las veces se vende más y la otra mitad menos.",
-    "tft": "El TFT (Temporal Fusion Transformer) es una red neuronal para series de tiempo que usa calendario, precios y eventos, y entrega los cuantiles P10, P50 y P90 de los próximos 28 días.",
-    "lightgbm": "LightGBM es un modelo de árboles de decisión muy rápido. Aquí se entrena para predecir los cuantiles diarios y también el cuantil de la demanda total, que es el que se usa para reponer.",
+    "tft": "El TFT (Temporal Fusion Transformer) es una red neuronal que se probó en la primera versión del proyecto. Se retiró: LightGBM lo igualó en exactitud con unas 15 veces menos cómputo, y por eso el proyecto usa solo LightGBM.",
+    "lightgbm": "LightGBM es un modelo de árboles de decisión muy rápido y es el único modelo del proyecto. Aquí se entrena para predecir los cuantiles diarios (con 38 variables y parámetros ajustados) y también el cuantil de la demanda total, que es el que se usa para reponer.",
     "ets": "ETS es un modelo estadístico clásico de suavizamiento exponencial; se usa como referencia para comparar.",
     "naive": "El modelo naive repite lo vendido en la misma fecha de la semana anterior; es la referencia más simple.",
     "demanda esperada": "La demanda esperada es la mediana de lo que se prevé vender en el periodo; junto a ella se muestran escenarios altos (P80, P90, P95).",
@@ -462,29 +462,27 @@ def comparar_modelos(ctx, info):
         metricas.setdefault(m.modelo, {})[m.metrica] = m.valor
     if not metricas:
         return {"texto": "Aún no hay métricas cargadas. Ejecuta «python manage.py cargar_metricas» para traer los resultados de las pruebas.", "enlace": {"texto": "Ir a Modelos", "url": reverse("modelos")}}
-    etiquetas = {"naive": "Naive", "ets": "ETS", "lightgbm": "LightGBM", "tft_s1": "TFT base", "tft_h64": "TFT (hidden 64)"}
+    etiquetas = {"lightgbm_v1": "LightGBM primera versión", "lightgbm": "LightGBM final"}
     ranking = sorted(((k, v) for k, v in metricas.items() if k in etiquetas), key=lambda kv: kv[1].get("MASE_medio", 99))
-    pedido = info["entidades"].get("modelo")
+    if len(ranking) < 2:
+        return {"texto": "Aún no hay métricas cargadas. Ejecuta «python manage.py cargar_metricas» para traer los resultados de las pruebas.", "enlace": {"texto": "Ir a Modelos", "url": reverse("modelos")}}
     mejor, segundo = ranking[0], ranking[1]
-    texto = (f"Según las pruebas (3 ventanas de 28 días, 374 series), el menor error (MASE) es el de {etiquetas[mejor[0]]}: {mejor[1]['MASE_medio']:.3f}. "
-             f"Le sigue {etiquetas[segundo[0]]} con {segundo[1]['MASE_medio']:.3f}")
-    texto += ", una diferencia muy pequeña: están prácticamente empatados." if segundo[1]["MASE_medio"] - mejor[1]["MASE_medio"] < 0.01 else "."
-    if pedido in metricas:
-        texto += f" El modelo que mencionas ({etiquetas.get(pedido, pedido)}) tiene un MASE de {metricas[pedido]['MASE_medio']:.3f}."
+    texto = (f"Según las pruebas (2 ventanas de 28 días que no se usaron para ajustar, 374 series), el menor error (MASE) es el de {etiquetas[mejor[0]]}: {mejor[1]['MASE_medio']:.3f}. "
+             f"La {etiquetas[segundo[0]].replace('LightGBM ', '')} tuvo {segundo[1]['MASE_medio']:.3f}: la mejora es pequeña pero consistente (menos del 1 % en MASE).")
+    if info["entidades"].get("modelo") == "tft":
+        texto += " El TFT (red neuronal) ya no forma parte del proyecto: en la primera versión empató con LightGBM y costaba unas 15 veces más cómputo."
     return {"texto": texto, "columnas": ["Modelo", "MASE (menor es mejor)", "Cobertura del 80 %"],
             "filas": [[etiquetas[k], f"{v['MASE_medio']:.3f}", f"{v.get('cobertura_80', 0):.3f}"] for k, v in ranking], "enlace": {"texto": "Ver en Modelos", "url": reverse("modelos")}}
 
 
 def estado_modelo(ctx, info):
-    activas = {t: _activa(t) for t in ("lightgbm", "lgbm_agregado", "tft")}
+    activas = {t: _activa(t) for t in ("lightgbm", "lgbm_agregado")}
     if not any(activas.values()):
         return _sin_predicciones()
     lg = activas["lightgbm"] or activas["lgbm_agregado"]
     inicio = lg.fecha_origen + timedelta(days=1)
     partes = [f"Las predicciones activas usan datos hasta el {lg.fecha_origen.strftime('%d/%m/%Y')} y cubren del {inicio.strftime('%d/%m/%Y')} al {(inicio + timedelta(days=27)).strftime('%d/%m/%Y')}."]
     partes.append("Modelos activos: " + ", ".join(f"{c.get_tipo_display()} (generado el {timezone.localtime(c.creada).strftime('%d/%m/%Y %H:%M')})" for c in activas.values() if c) + ".")
-    if not activas["tft"]:
-        partes.append("Todavía no hay un TFT entrenado; puedes lanzarlo desde la pestaña Modelos.")
     ult = EjecucionTarea.objects.first()
     if ult:
         partes.append(f"Última tarea: {ult.get_comando_display()} ({ult.get_estado_display().lower()}).")
@@ -568,7 +566,7 @@ def catalogo(ctx, info):
 
 def accion_no_soportada(ctx, info):
     return {"texto": "Todavía no puedo hacer cambios ni ejecutar acciones desde el chat: solo consulto datos. Lo que pides se hace desde las pestañas: el inventario actual se edita en Reposición "
-                     "y las tareas (generar predicciones, entrenar el TFT) se lanzan en Modelos. Aquí sí puedo consultarte ventas, proyecciones, reposición, riesgos y modelos.",
+                     "y la tarea de generar predicciones se lanza en Modelos. Aquí sí puedo consultarte ventas, proyecciones, reposición, riesgos y modelos.",
             "enlace": {"texto": "Ir a Modelos", "url": reverse("modelos")}, "sugerencias": EJEMPLOS[:3]}
 
 
@@ -585,11 +583,11 @@ GUIAS_APP = [
      "El inventario actual se ve y se edita en la pestaña Reposición, en la columna «Inventario actual»: escribes las unidades y el pedido y el estado se recalculan al instante. "
      "Aquí en el chat puedes consultarlo, por ejemplo «¿cuánto inventario tengo de FOODS en Texas?».", "reposicion", "Ir a Reposición"),
     (("entrena", "tft", "generar", "genera", "prediccion", "predicciones", "actualiz", "corrida", "modelo", "boton"),
-     "Las predicciones y el entrenamiento se lanzan en la pestaña Modelos: el botón «Generar predicciones» entrena LightGBM y guarda el pronóstico (~1 min) y «Entrenar TFT» entrena la red neuronal (~1 h; hay una prueba rápida). "
+     "Las predicciones y el entrenamiento se lanzan en la pestaña Modelos: el botón «Generar predicciones» entrena LightGBM y guarda el pronóstico (unos 5 min). "
      "Ahí también ves el estado de las tareas, las corridas guardadas y la comparación de modelos.", "modelos", "Ir a Modelos"),
     (("grafica", "proyeccion", "rango", "banda", "p10", "linea", "interpreto"),
      "La pestaña Proyecciones muestra, para una serie, las ventas reales de las últimas 12 semanas, la mediana proyectada de los próximos 28 días y la banda entre P10 y P90 (el rango razonable). "
-     "Si la banda es ancha, la demanda es más incierta; puedes comparar con el TFT marcando «Comparar con TFT».", "proyecciones", "Ir a Proyecciones"),
+     "Si la banda es ancha, la demanda es más incierta.", "proyecciones", "Ir a Proyecciones"),
     (("tienda", "categoria", "filtro", "filtrar", "seleccion", "producto"),
      "Los filtros están arriba en Proyecciones y Reposición: Tienda y Categoría (y en Reposición también nivel de servicio, política, estado y un buscador de producto). "
      "En el chat basta decirlo con palabras, por ejemplo «ventas de FOODS en Texas», y después «¿y en California?».", "reposicion", "Ir a Reposición"),

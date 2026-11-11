@@ -14,9 +14,7 @@ from apps.pronosticos.models import (CorridaModelo, EjecucionTarea, InventarioAc
                                      SugerenciaReposicion)
 
 NIVELES = (0.8, 0.9, 0.95)
-ETIQUETAS_MODELO = {"naive": "Naive", "ets": "ETS", "lightgbm": "LightGBM", "tft_s1": "TFT base", "tft_h64": "TFT (hidden 64)",
-                    "tft_in112": "TFT historia 112", "tft_p3000": "TFT 3.000 pasos", "tft_lr3e3": "TFT tasa 3e-3", "tft_p3000_lr3e3": "TFT 3.000 pasos y tasa 3e-3",
-                    "tft_s2": "TFT base (semilla 2)", "tft_h64_sem2": "TFT hidden 64 (semilla 2)"}
+ETIQUETAS_MODELO = {"lightgbm_v1": "LightGBM primera versión", "lightgbm": "LightGBM final"}
 
 
 def corrida_activa(tipo):
@@ -44,7 +42,7 @@ def inicio(request):
 
 # ----------------------------------------------------------------------------------------------- Proyecciones
 def proyecciones(request):
-    agg, lgbm, tft = corrida_activa("lgbm_agregado"), corrida_activa("lightgbm"), corrida_activa("tft")
+    agg, lgbm = corrida_activa("lgbm_agregado"), corrida_activa("lightgbm")
     contexto = {"seccion": "proyecciones", "hay_datos": bool(agg and lgbm), **_opciones_filtros()}
     if not contexto["hay_datos"]:
         return render(request, "panel/proyecciones.html", contexto)
@@ -71,13 +69,11 @@ def proyecciones(request):
     if serie:
         hist = list(VentaDiaria.objects.filter(serie=serie, fecha__gt=lgbm.fecha_origen - timedelta(days=84)).order_by("fecha").values_list("fecha", "unidades"))
         modelos = {}
-        for nombre, c in (("lightgbm", lgbm), ("tft", tft)):
-            if c:
-                f = list(Prediccion.objects.filter(corrida=c, serie=serie).order_by("fecha").values_list("fecha", "p10", "p50", "p90"))
-                modelos[nombre] = {"fechas": [x[0].isoformat() for x in f], "p10": [round(x[1], 2) for x in f], "p50": [round(x[2], 2) for x in f], "p90": [round(x[3], 2) for x in f]}
+        f = list(Prediccion.objects.filter(corrida=lgbm, serie=serie).order_by("fecha").values_list("fecha", "p10", "p50", "p90"))
+        modelos["lightgbm"] = {"fechas": [x[0].isoformat() for x in f], "p10": [round(x[1], 2) for x in f], "p50": [round(x[2], 2) for x in f], "p90": [round(x[3], 2) for x in f]}
         grafica = {"hist": {"fechas": [h[0].isoformat() for h in hist], "y": [h[1] for h in hist]}, "modelos": modelos}
     contexto.update({"tienda": tienda, "categoria": categoria, "mediana": mediana, "alto": alto, "n_series": len(ids), "por_categoria": por_categoria, "top": top,
-                     "serie": serie, "grafica": grafica, "tiene_tft": bool(tft), "fecha_origen": lgbm.fecha_origen,
+                     "serie": serie, "grafica": grafica, "fecha_origen": lgbm.fecha_origen,
                      "datos_categoria": {"etiquetas": [x["serie__departamento__categoria__codigo"] for x in por_categoria], "valores": [round(x["t"]) for x in por_categoria]}})
     return render(request, "panel/proyecciones.html", contexto)
 
@@ -185,11 +181,7 @@ def lanzar_tarea(request):
     comando = request.POST.get("comando", "")
     if comando not in tareas.COMANDOS:
         return JsonResponse({"error": "Comando no permitido."}, status=400)
-    try:
-        pasos = int(request.POST.get("pasos", 1500))
-    except ValueError:
-        pasos = 1500
-    t, nueva = tareas.lanzar(comando, pasos)
+    t, nueva = tareas.lanzar(comando)
     return JsonResponse({"id": t.id, "nueva": nueva})
 
 

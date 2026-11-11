@@ -297,7 +297,7 @@ def snap(ctx, info):
             dias = [c.fecha for c in cal if getattr(c, campo)]
             partes.append(f"{e}: {len(dias)} días" + (f" ({', '.join(d.strftime('%d/%m') for d in dias)})" if dias and len(dias) <= 12 else ""))
         return {"texto": f"Días con ayuda SNAP entre el {_f(ini)} y el {_f(min(fin, cal[-1].fecha))} (el calendario llega hasta el {_f(cal[-1].fecha)}): " + "; ".join(partes) + ". "
-                         "Las proyecciones de LightGBM y TFT usan el calendario SNAP como variable, así que ya lo consideran.", "_ctx": {"snap_rango": [ini.isoformat(), fin.isoformat()]}}
+                         "Las proyecciones de LightGBM usan el calendario SNAP como variable, así que ya lo consideran.", "_ctx": {"snap_rango": [ini.isoformat(), fin.isoformat()]}}
     qs, desc, error = _alcance(ctx)
     if error:
         return {"texto": error}
