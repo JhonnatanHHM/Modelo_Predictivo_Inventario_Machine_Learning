@@ -4,7 +4,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from config import OUT_RES, ORIGIN, TEST_START
 
-COLORES = {"naive": "#6B7280", "ets": "#B45309", "lightgbm": "#15803D", "tft": "#1D4ED8"}
+COLORES = {"naive": "#6B7280", "ets": "#B45309", "lightgbm": "#15803D"}
 
 def graficas(master, preds, glob_df):
     OUT_RES.mkdir(parents=True, exist_ok=True)
@@ -27,7 +27,7 @@ def graficas(master, preds, glob_df):
         for m, p in preds.items():
             q = p[p.unique_id == uid].sort_values("ds")
             a.plot(q.ds, q.p50, color=COLORES.get(m, "#999"), lw=1.3, label=f"{m} P50")
-            if m in ("lightgbm", "tft"):
+            if m in ("lightgbm",):
                 a.fill_between(q.ds, q.p10, q.p90, color=COLORES.get(m, "#999"), alpha=0.12)
         a.axvline(g[g.dnum == TEST_START].ds.iloc[0], color="gray", ls="--", lw=0.8)
         a.set_title(uid, fontsize=9); a.legend(fontsize=7, ncol=5, loc="upper left")
