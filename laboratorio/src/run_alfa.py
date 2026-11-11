@@ -1,15 +1,15 @@
-"""Orquesta la prueba alfa de extremo a extremo. Uso: python src/run_alfa.py [--solo-datos] [--sin-tft] [--sin-lgbm] [--sin-ets] [--pasos N] [--series N]"""
+"""Orquesta la corrida de comparación (naive, ETS y LightGBM de la línea base) de extremo a extremo. Uso: python src/run_alfa.py [--solo-datos] [--sin-lgbm] [--sin-ets] [--series N]"""
 import argparse, sys, time, traceback
 import pandas as pd
 sys.path.insert(0, __import__("os").path.dirname(__file__))
-from config import OUT_RES, N_POR_ESTRATO, TFT_STEPS, TEST_START, SINTETICO, ORIGIN, H, TABLA_DIR
+from config import OUT_RES, N_POR_ESTRATO, TEST_START, SINTETICO, ORIGIN, H, TABLA_DIR
 from utils import preparar_log, log, cronometro, info_equipo, guardar_json, TIEMPOS, guardar_tabla
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--solo-datos", action="store_true"); ap.add_argument("--sin-tft", action="store_true")
+    ap.add_argument("--solo-datos", action="store_true")
     ap.add_argument("--sin-lgbm", action="store_true"); ap.add_argument("--sin-ets", action="store_true")
-    ap.add_argument("--pasos", type=int, default=TFT_STEPS); ap.add_argument("--series", type=int, default=N_POR_ESTRATO); ap.add_argument("--reusar-tabla", action="store_true")
+    ap.add_argument("--series", type=int, default=N_POR_ESTRATO); ap.add_argument("--reusar-tabla", action="store_true")
     a = ap.parse_args()
     preparar_log("alfa")
     equipo = info_equipo(); log().info(f"Equipo: {equipo}")
@@ -33,9 +33,6 @@ def main():
     modelos = [("naive", B.pronostico_naive)]
     if not a.sin_ets: modelos.append(("ets", B.pronostico_ets))
     if not a.sin_lgbm: modelos.append(("lightgbm", B.pronostico_lgbm))
-    if not a.sin_tft:
-        import modelo_tft as T
-        modelos.append(("tft", lambda m: T.pronostico_tft(m, a.pasos)))
     preds, fallos = {}, {}
     for nombre, f in modelos:
         try:
@@ -60,7 +57,7 @@ def main():
         graficas(master, preds, glob_df)
     except Exception as e:
         log().info(f"Gráficas no generadas: {e}")
-    guardar_json({"equipo": equipo, "tiempos_s": TIEMPOS, "fallos": fallos, "pasos_tft": a.pasos, "origen": ORIGIN, "series": int(master.unique_id.nunique())}, OUT_RES / "tiempos_y_equipo.json")
+    guardar_json({"equipo": equipo, "tiempos_s": TIEMPOS, "fallos": fallos, "origen": ORIGIN, "series": int(master.unique_id.nunique())}, OUT_RES / "tiempos_y_equipo.json")
     pd.set_option("display.width", 200)
     cols = ["MASE_medio", "MASE_mediana", "pinball_escalada_media", "WQL", "cobertura_p10", "cobertura_p90", "cobertura_80", "ancho_medio", "sesgo_relativo"]
     tabla = glob_df[cols].round(3)
