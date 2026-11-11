@@ -13,7 +13,7 @@ Los datos de M5 (Walmart) **no se pueden redistribuir** (reglas de Kaggle): este
 
 ## Arquitectura
 - **Django (MTV)**, 4 apps en `apps/`: `catalogo` (tiendas, series, ventas, calendario, precios), `pronosticos` (corridas de modelos, predicciones, sugerencias de reposición, métricas, tareas), `panel` (páginas del panel y perfil) y `chat` (sesiones, historial y procesamiento de lenguaje).
-- **PostgreSQL** como base de datos. `ml/` contiene el código de los modelos que lee de la base (LightGBM diario, LightGBM de la demanda total y TFT).
+- **PostgreSQL** como base de datos. `ml/` contiene el código de los modelos que lee de la base (LightGBM diario con 38 variables y parámetros ajustados, y LightGBM de la demanda total).
 - Los modelos no se ejecutan dentro de la petición web: cada tarea larga corre en un proceso aparte (`manage.py ejecutar_tarea`), escribe su registro y la web solo lee la base.
 - Acceso simple con usuario y contraseña; todo el sitio lo exige. Temas claro y oscuro.
 
@@ -51,10 +51,9 @@ Abre http://127.0.0.1:8000/ e inicia sesión. En **Mi perfil** (tu nombre arriba
 
 ### 5. Predicciones desde la interfaz
 En la pestaña **Modelos**:
-- **Generar predicciones:** entrena LightGBM con todo el histórico, pronostica los 28 días siguientes y guarda predicciones y reposición sugerida (~1 min).
-- **Entrenar TFT:** entrena la red neuronal (1.500 pasos, ~1 h en CPU; hay una prueba rápida de 20 pasos) y guarda sus predicciones y el modelo.
+- **Generar predicciones:** entrena LightGBM con todo el histórico (un modelo por cuantil, con 728 días de orígenes de entrenamiento), pronostica los 28 días siguientes y guarda predicciones y reposición sugerida (unos 5 min en CPU).
 
-Equivalen a `python manage.py generar_predicciones` y `python manage.py entrenar_tft [--pasos N]`.
+Equivale a `python manage.py generar_predicciones [--origen N]`. La pestaña también muestra la comparación entre la primera versión de LightGBM y la final (`cargar_metricas`).
 
 La pestaña **Reposición** calcula `pedido = stock objetivo − inventario actual` al editar el inventario. M5 no trae inventarios; para una demostración puedes generar inventarios **simulados** (quedan marcados como tales):
 ```powershell
@@ -66,7 +65,7 @@ La pestaña **Reposición** calcula `pedido = stock objetivo − inventario actu
 .venv\Scripts\python manage.py test --settings=config.settings_test
 ```
 Usan SQLite en memoria (no necesitan PostgreSQL ni los datos de M5; crean una base mínima propia). Cubren: extracción de entidades y reglas del chat, respuestas con datos, alcance («fuera de contexto», datos que no existen, periodos sin datos), sesiones e historial, memoria de la conversación,
-acceso obligatorio en todo el sitio, inicio y cierre de sesión, perfil, cambio de contraseña y filtros de reposición. Hay 45 pruebas.
+acceso obligatorio en todo el sitio, inicio y cierre de sesión, perfil, cambio de contraseña y filtros de reposición. Hay 47 pruebas (incluye las del modelo LightGBM con datos sintéticos: variables sin fuga del futuro y cuantiles ordenados).
 
 ## Chat
 Pestaña **Chat**: preguntas en español sobre las ventas registradas (pasado) y las proyecciones (futuro), la reposición, el riesgo de quiebre, el inventario, los modelos y el significado de los términos

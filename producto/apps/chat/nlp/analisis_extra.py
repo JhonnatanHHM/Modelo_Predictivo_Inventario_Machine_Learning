@@ -190,7 +190,7 @@ def tendencia2(ctx, info):
 def snap2(ctx, info):
     t = info["normalizado"]
     if re.search(r"considera|tiene en cuenta|incluye|usa(?:n)? (?:los )?dias|toma(?:n)? en cuenta", t) and re.search(r"modelo|pronostico|proyeccion|prediccion", t):
-        return {"texto": "Sí: LightGBM y el TFT usan el calendario como variable de entrada, incluidos los días SNAP de cada estado y los eventos. Por eso la proyección ya refleja esos días; "
+        return {"texto": "Sí: LightGBM usa el calendario como variable de entrada, incluidos los días SNAP de cada estado y los eventos. Por eso la proyección ya refleja esos días; "
                          "puedes ver cuáles caen en el periodo preguntando «¿qué días SNAP hay en junio?»."}
     ents = info["entidades"]
     pide_efecto = bool(re.search(r"suben|bajan|afect|venden mas|vende mas|aumenta|efecto|ventas|vender|mas ventas", t)) and not A.R_FUTURO.search(t)
@@ -762,8 +762,8 @@ def rango_dia(ctx, info):
 
 
 def tiempo_entrenamiento(ctx, info):
-    return {"texto": "En este equipo (CPU, sin GPU): LightGBM tarda cerca de 1 minuto (botón «Generar predicciones»); ETS y el modelo naive, segundos; y el TFT cerca de 1 hora (54 minutos medidos con 1.500 pasos de entrenamiento). "
-                     "Por eso el TFT se lanza aparte desde la pestaña Modelos.",
+    return {"texto": "En este equipo (CPU, sin GPU): LightGBM tarda unos 5 minutos (botón «Generar predicciones»: entrena un modelo por cada cuantil con 728 días de historia). "
+                     "Puedes seguir usando la página mientras corre.",
             "enlace": {"texto": "Ir a Modelos", "url": R.reverse("modelos")}}
 
 
